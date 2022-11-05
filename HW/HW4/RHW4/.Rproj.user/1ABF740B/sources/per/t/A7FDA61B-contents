@@ -1,0 +1,279 @@
+---
+title: "STAT4060Jhw4"
+author: "Siqi Xiao"
+date: "2022-11-01"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+1.  Write the R code linear SVM model to classify the digits. I attached the data file and a file of code to be completed. Please moniter the training accuracy and testing accuracy and describe your finding.
+
+```{r}
+load_digits <- function(subset=NULL, normalize=TRUE) {
+  
+#Load digits and labels from digits.csv.
+
+#Args:
+#subset: A subset of digit from 0 to 9 to return.
+#If not specified, all digits will be returned.
+#normalize: Whether to normalize data values to between 0 and 1.
+
+#Returns:
+#digits: Digits data matrix of the subset specified.
+#The shape is (n, p), where
+#n is the number of examples,
+#p is the dimension of features.
+#labels: Labels of the digits in an (n, ) array.
+#Each of label[i] is the label for data[i, :]
+
+# load digits.csv, adopted from sklearn.
+
+df <- fread("digits.csv") 
+df <- as.matrix(df)
+
+## only keep the numbers we want.
+if (length(subset)>0) {
+  
+  c <- dim(df)[2]
+  l_col <- df[,c]
+  index = NULL
+  
+  for (i in 1:length(subset)){
+    
+    number = subset[i]
+    index = c(index,which(l_col == number))
+  }
+  sort(index)
+  df = df[index,]
+}
+
+# convert to arrays.
+digits = df[,-1]
+labels = df[,c]
+
+# Normalize digit values to 0 and 1.
+if (normalize == TRUE) {
+  digits = digits - min(digits)
+  digits = digits/max(digits)
+  }
+
+
+# Change the labels to 0 and 1.
+for (i in 1:length(subset)) {
+  labels[labels == subset[i]] = i-1
+}
+
+return(list(digits, labels))
+}
+
+split_samples <- function(digits,labels) {
+
+# Split the data into a training set (70%) and a testing set (30%).
+
+num_samples <- dim(digits)[1]
+num_training <- round(num_samples*0.7)
+indices = sample(1:num_samples, size = num_samples)
+training_idx <- indices[1:num_training]
+testing_idx <- indices[-(1:num_training)]
+
+return (list(digits[training_idx,], labels[training_idx],
+        digits[testing_idx,], labels[testing_idx]))
+}
+
+```
+
+```{r}
+result <- load_digits(subset=c(1, 7), normalize=TRUE)
+digits = result[[1]]
+labels = result[[2]]
+result <- split_samples(digits,labels)
+training_digits = result[[1]]
+training_labels = result[[2]]
+testing_digits = result[[3]]
+testing_labels = result[[4]]
+# print dimensions
+dim(training_digits)
+dim(testing_digits)
+length(training_labels)
+length(testing_labels)
+```
+
+```{r}
+# Train a model and display training accuracy.
+my_SVM <- function(X_train, Y_train, X_test, Y_test, lambda = 0.01, num_iterations = 1000, learning_rate = 0.1)
+{
+  n <- dim(X_train)[1]
+  p <- dim(X_train)[2]+1
+  X_train1 <- cbind(rep(1,n), X_train)
+  Y_train <- 2*Y_train - 1#0,1->-1,1
+  beta <- matrix(rep(0,p), nrow = p)
+  
+  ntest <- nrow(X_test)
+  X_test1 <- cbind(rep(1,ntest), X_test)
+  Y_test <- 2*Y_test - 1#0,1->-1,1
+  
+  acc_train <- rep(0, num_iterations)
+  acc_test <- rep(0, num_iterations)
+  
+  for(it in 1:num_iterations){
+    s <- X_train1 %*% beta
+    db <- s*Y_train < 1
+    dbeta <- matrix(rep(1,n), nrow = 1)%*%((matrix(db*Y_train, n, p)*X_train1))/n
+    beta <- beta +learning_rate *t(dbeta)
+    beta[2:p] <- beta[2:p] - lambda *beta[2:p]
+    
+    acc_train[it] <- mean(sign(s * Y_train))
+    acc_test[it] <- mean(sign(X_test1 %*% beta * Y_test))
+  }
+  model <- list(beta = beta, acc_train = acc_train, acc_test = acc_test)
+  model
+}
+```
+
+```{r}
+SVM_model <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10)
+beta <- SVM_model[1]
+acc_train <- SVM_model[2]
+acc_test <-  SVM_model[3]
+acc_train
+acc_test
+```
+
+From the result above, I find that the accuracy for both training and testing are climbing in a fast speed, and finally come to a perfect accuracy. The first iteration is the iteration the model improves the fastest.
+
+## Question 2
+
+2.  Next, let's dive deeper into SVM, you should explore at least the following:
+
+<!-- -->
+
+a.  difference choice of C in controlling slackness
+b.  Kernel SVM with Gaussian radial basis function.
+c.  Another variation proposed by yourself.
+
+```{r}
+model1 <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, lambda = 0.02)
+model2 <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, lambda = 0.05)
+model3 <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, lambda = 0.1)
+model4 <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, lambda = 0.2)
+model5 <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, lambda = 1)
+model6 <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, lambda = 1.5)
+model7 <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, lambda = 1.6)
+model8 <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, lambda = 2)
+model9 <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, lambda = 5)
+model10 <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, lambda = 10)
+
+```
+
+```{r}
+acc_train1 <- model1[2]
+acc_test1 <-  model1[3]
+
+acc_train2 <- model2[2]
+acc_test2 <-  model2[3]
+
+acc_train3 <- model3[2]
+acc_test3 <-  model3[3]
+
+acc_train4 <- model4[2]
+acc_test4 <-  model4[3]
+
+acc_train5 <- model5[2]
+acc_test5 <-  model5[3]
+
+acc_train6 <- model6[2]
+acc_test6 <-  model6[3]
+
+acc_train7 <- model7[2]
+acc_test7 <-  model7[3]
+
+acc_train8 <- model8[2]
+acc_test8 <-  model8[3]
+
+acc_train9 <- model9[2]
+acc_test9 <-  model9[3]
+
+acc_train10 <- model10[2]
+acc_test10 <-  model10[3]
+
+acc_train1
+acc_test1 
+acc_train2
+acc_test2 
+acc_train3
+acc_test3 
+acc_train4
+acc_test4 
+acc_train5
+acc_test5 
+acc_train6
+acc_test6 
+acc_train7
+acc_test7 
+acc_train8
+acc_test8 
+acc_train9
+acc_test9 
+acc_train10
+acc_test10 
+```
+
+By choosing different Cs, the training accuracies and the testing accuracies have huge discrepancies. Generally speaking, from the experiment result, we may say the smaller the C is, the better the performance will be. With a large C, the SVM is not even able to have a fair performance on classification or regression.
+
+```{r}
+kernel_SVM <- function(X_train, Y_train, X_test, Y_test, lambda = 0.01, num_iterations = 1000, learning_rate = 0.1)
+{
+  n <- dim(X_train)[1]
+  p <- dim(X_train)[2]+1
+  X_train1 <- cbind(rep(1,n), sin(X_train))
+  Y_train <- 2*Y_train - 1#0,1->-1,1
+  beta <- matrix(rep(0,p), nrow = p)
+  
+  ntest <- nrow(X_test)
+  X_test1 <- cbind(rep(1,ntest), sin(X_test))
+  Y_test <- 2*Y_test - 1#0,1->-1,1
+  
+  acc_train <- rep(0, num_iterations)
+  acc_test <- rep(0, num_iterations)
+  
+  for(it in 1:num_iterations){
+    s <- X_train1 %*% beta
+    db <- s*Y_train < 1
+    dbeta <- matrix(rep(1,n), nrow = 1)%*%((matrix(db*Y_train, n, p)*X_train1))/n
+    beta <- beta +learning_rate *t(dbeta)
+    beta[2:p] <- beta[2:p] - lambda *beta[2:p]
+    
+    acc_train[it] <- mean(sign(s * Y_train))
+    acc_test[it] <- mean(sign(X_test1 %*% beta * Y_test))
+  }
+  model <- list(beta = beta, acc_train = acc_train, acc_test = acc_test)
+  model
+}
+```
+
+```{r}
+kernel_model <- kernel_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10)
+kernel_beta <- kernel_model[1]
+kernel_acc_train <- kernel_model[2]
+kernel_acc_test <-  kernel_model[3]
+kernel_acc_train
+kernel_acc_test
+```
+
+By using sin(x) kernel, we also get a great accuracy.
+
+```{r}
+learning_model <- my_SVM(training_digits, training_labels, testing_digits, testing_labels, num_iterations = 10, learning_rate = 1)
+learningl_beta <- learning_model[1]
+learning_acc_train <- learning_model[2]
+learning_acc_test <-  learning_model[3]
+learning_acc_train
+learning_acc_test
+```
+
+By changing learning rate to 1, we find the accuracy converges slower than lr=0.1, while the path is also not stable. But finally, the accuracy comes to a fair result.
